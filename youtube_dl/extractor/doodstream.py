@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 import string
 import random
 import time
-import re
 
 from .common import InfoExtractor
 
@@ -22,21 +21,11 @@ class DoodStreamIE(InfoExtractor):
         },
     }]
 
-    @staticmethod
-    def _extract_urls(webpage):
-        return re.findall(
-            r'<iframe[^>]+?src=["\'](?P<url>(?:https?://)?dood\.(?:watch|to|so)/e/.+?)["\']',
-            webpage)
-
     def _real_extract(self, url):
         video_id = self._match_id(url)
-        webpage = self._download_webpage(url, video_id)
 
-        if '/d/' in url:
-            url = "https://dood.to" + self._html_search_regex(
-                r'<iframe src="(/e/[a-z0-9]+)"', webpage, 'embed')
-            video_id = self._match_id(url)
-            webpage = self._download_webpage(url, video_id)
+        url = 'https://dood.to/e/' + video_id
+        webpage = self._download_webpage(url, video_id)
 
         title = self._html_search_meta(['og:title', 'twitter:title'],
                                        webpage, default=None)
