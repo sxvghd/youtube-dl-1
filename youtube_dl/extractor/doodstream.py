@@ -11,17 +11,16 @@ from .common import InfoExtractor
 
 class DoodStreamIE(InfoExtractor):
     _VALID_URL = r'https?://(?:www\.)?dood\.(?:to|watch|so)/[ed]/(?P<id>[a-z0-9]+)'
-    _TEST = {
-        'url': 'https://dood.to/d/jzrxn12t2s7n',
-        'md5': '3207e199426eca7c2aa23c2872e6728a',
+    _TESTS = [{
+        'url': 'https://dood.to/d/wpyp2mgwi2kb',
+        'md5': '2aaf633bcd5fefb64b27344f55022bf9',
         'info_dict': {
-            'id': 'jzrxn12t2s7n',
+            'id': 'wpyp2mgwi2kb',
             'ext': 'mp4',
-            'title': 'Stacy Cruz Cute ALLWAYSWELL',
-            'description': 'Stacy Cruz Cute ALLWAYSWELL | DoodStream.com',
-            'thumbnail': 'https://img.doodcdn.com/splash/8edqd5nppkac3x8u.jpg',
-        }
-    }
+            'title': 'Big Buck Bunny Trailer',
+            'thumbnail': r're:^https?://.*\.jpg$',
+        },
+    }]
 
     @staticmethod
     def _extract_urls(webpage):
