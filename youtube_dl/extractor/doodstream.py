@@ -4,65 +4,91 @@ from __future__ import unicode_literals
 import string
 import random
 import time
-import re
 
 from .common import InfoExtractor
+from ..utils import (
+    js_to_json,
+    urljoin,
+)
+
+
+def doodExe(crp, crs):
+    if crp == 'N_crp':
+        return crs
+    sorted_crp = ''.join(sorted(crp))
+    result = ''
+    for c in crs:
+        i = crp.find(c)
+        if i >= 0:
+            result += sorted_crp[i]
+    result = result.replace('+.+', '(')
+    result = result.replace('+..+', ')')
+    result = result.replace('+-+', '[')
+    result = result.replace('+--+', ']')
+    result = result.replace('+', ' ')
+    return result
 
 
 class DoodStreamIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:www\.)?dood\.(?:to|watch|so)/[ed]/(?P<id>[a-z0-9]+)'
-    _TEST = {
-        'url': 'https://dood.to/d/jzrxn12t2s7n',
-        'md5': '3207e199426eca7c2aa23c2872e6728a',
+    _VALID_URL = r'https?://(?:www\.)?(?:doodstream\.com|dood\.(?:so|to|watch))/[de]/(?P<id>[^/?#]+)'
+    _TESTS = [{
+        'url': 'https://dood.to/d/wpyp2mgwi2kb',
+        'md5': '2aaf633bcd5fefb64b27344f55022bf9',
         'info_dict': {
-            'id': 'jzrxn12t2s7n',
+            'id': 'wpyp2mgwi2kb',
             'ext': 'mp4',
-            'title': 'Stacy Cruz Cute ALLWAYSWELL',
-            'description': 'Stacy Cruz Cute ALLWAYSWELL | DoodStream.com',
-            'thumbnail': 'https://img.doodcdn.com/splash/8edqd5nppkac3x8u.jpg',
-        }
-    }
-
-    @staticmethod
-    def _extract_urls(webpage):
-        return re.findall(
-            r'<iframe[^>]+?src=["\'](?P<url>(?:https?://)?dood\.(?:watch|to|so)/e/.+?)["\']',
-            webpage)
+            'title': 'Big Buck Bunny Trailer',
+            'thumbnail': r're:^https?://.*\.jpg$',
+            'filesize': 4447915,
+            'duration': 33,
+        },
+    }]
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
+
+        url = 'https://dood.to/e/' + video_id
+        referer = {'Referer': url}
         webpage = self._download_webpage(url, video_id)
 
-        if '/d/' in url:
-            url = "https://dood.to" + self._html_search_regex(
-                r'<iframe src="(/e/[a-z0-9]+)"', webpage, 'embed')
-            video_id = self._match_id(url)
-            webpage = self._download_webpage(url, video_id)
+        metadata_url = self._html_search_regex(r"('/cptr/[^']*')", webpage,
+                                               'video metadata')
+        metadata_url = self._parse_json(metadata_url, video_id,
+                                        transform_source=js_to_json)
+        metadata_url = urljoin(url, metadata_url)
+        metadata = self._download_json(metadata_url, video_id, headers=referer)
 
-        title = self._html_search_meta(['og:title', 'twitter:title'],
-                                       webpage, default=None)
-        thumb = self._html_search_meta(['og:image', 'twitter:image'],
-                                       webpage, default=None)
+        thumb = self._og_search_thumbnail(webpage)
+        try:
+            filesize = int(doodExe(**metadata['siz']), 10)
+        except (KeyError, ValueError):
+            filesize = None
+        try:
+            duration = int(doodExe(**metadata['len']), 10)
+        except (KeyError, ValueError):
+            duration = None
+        try:
+            title = doodExe(**metadata['ttl'])
+        except KeyError:
+            title = video_id
+
         token = self._html_search_regex(r'[?&]token=([a-z0-9]+)[&\']', webpage, 'token')
-        description = self._html_search_meta(
-            ['og:description', 'description', 'twitter:description'],
-            webpage, default=None)
-        auth_url = 'https://dood.to' + self._html_search_regex(
-            r'(/pass_md5.*?)\'', webpage, 'pass_md5')
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:53.0) Gecko/20100101 Firefox/66.0',
-            'referer': url
-        }
+        auth_url = self._html_search_regex(r"('/pass_md5.*?')", webpage,
+                                           'pass_md5')
+        auth_url = self._parse_json(auth_url, video_id,
+                                    transform_source=js_to_json)
+        auth_url = urljoin(url, auth_url)
 
-        webpage = self._download_webpage(auth_url, video_id, headers=headers)
+        webpage = self._download_webpage(auth_url, video_id, headers=referer)
         final_url = webpage + ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(10)]) + "?token=" + token + "&expiry=" + str(int(time.time() * 1000))
 
         return {
             'id': video_id,
             'title': title,
             'url': final_url,
-            'http_headers': headers,
+            'http_headers': referer,
             'ext': 'mp4',
-            'description': description,
             'thumbnail': thumb,
+            'filesize': filesize,
+            'duration': duration,
         }
